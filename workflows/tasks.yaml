@@ -56,20 +56,11 @@ nodes:
       task: "{{ nodes.ticket-fetcher.output.task }}"
       workspace: "{{ nodes.create-workspace.output }}"
 
-  # The user is still here after approving the plan: turn their corrections into learnings now,
-  # before the run goes on unattended. allowFailure: a learn problem never stops the run.
-  - id: learn
-    type: agent
-    stage: learn
-    dependsOn: [planning]
-    allowFailure: true
-    input: {}
-
   - id: compact-after-planning
     type: context
     action: compact
     prompt: "Keep the approved plan, the workspace path, and the run name."
-    dependsOn: [learn]
+    dependsOn: [planning]
 
   - id: implement
     type: agent
@@ -134,15 +125,3 @@ nodes:
       workspace: "{{ nodes.create-workspace.output }}"
       task: "{{ nodes.ticket-fetcher.output.task }}"
       qa: "{{ nodes.qa-loop.output }}"
-
-  # Audits the run for yok defects. always: it runs after a failed node too; allowFailure:
-  # its own failure never changes the run's status.
-  - id: retro
-    type: agent
-    mode: subagent
-    stage: retro
-    notify: false
-    dependsOn: [pr]
-    always: true
-    allowFailure: true
-    input: {}
