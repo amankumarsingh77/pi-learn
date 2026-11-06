@@ -4,6 +4,9 @@ baseline: bun run check
 
 workflowPath: .workflows
 
+notifier:
+  type: slack
+
 workspace:
   layout: mono
   path: .worktrees/{{ branch }}
