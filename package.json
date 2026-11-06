@@ -1,0 +1,17 @@
+{
+  "name": "pi-learn",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "test": "bun test",
+    "check": "bun run typecheck && bun run lint && bun run test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.0",
+    "@types/bun": "latest",
+    "typescript": "^5.9.0"
+  }
+}

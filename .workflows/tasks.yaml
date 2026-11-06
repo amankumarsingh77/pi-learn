@@ -1,0 +1,192 @@
+name: tasks
+description: >-
+  The full pipeline for a change that needs decisions, touches more than one part, or must be
+  verified in the running app: baseline, design, plan, implement, review, qa, commit, PR.
+inputs:
+  prompt:
+    type: string
+    required: true
+  # Which entry of the config's environments block qa verifies against: `default` is the entry the
+  # block names as its default. Pick another with `yok run … --input environment=NAME`.
+  environment:
+    type: string
+    default: default
+doctor:
+  - check: binary
+    key: bun
+    fix: Install Bun
+  - check: binary
+    key: gh
+    fix: Install the GitHub CLI and run gh auth login
+nodes:
+  - id: ticket-fetcher
+    type: agent
+    stage: ticket-fetcher
+    input:
+      request: "{{ inputs.prompt }}"
+
+  - id: create-workspace
+    type: agent
+    stage: create-workspace
+    notify: false
+    dependsOn: [ticket-fetcher]
+    input:
+      request: "{{ nodes.ticket-fetcher.output.task }}"
+
+  # Runs in a subagent beside design: nothing reads baseline.json before implement.
+  - id: baseline
+    type: agent
+    stage: baseline
+    notify: false
+    dependsOn: [create-workspace]
+    input: {}
+
+  - id: design
+    type: agent
+    stage: design
+    dependsOn: [create-workspace]
+    input:
+      task: "{{ nodes.ticket-fetcher.output.task }}"
+
+  - id: planning
+    type: agent
+    stage: planning
+    dependsOn: [design]
+    input:
+      task: "{{ nodes.ticket-fetcher.output.task }}"
+      workspace: "{{ nodes.create-workspace.output }}"
+
+  # The user is still here after approving the plan: turn their corrections into learnings now,
+  # before the run goes on unattended. allowFailure: a learn problem never stops the run.
+  - id: learn
+    type: agent
+    stage: learn
+    dependsOn: [planning]
+    allowFailure: true
+    input: {}
+
+  - id: compact-after-planning
+    type: context
+    action: compact
+    prompt: "Keep the approved plan, the workspace path, and the run name."
+    dependsOn: [learn]
+
+  - id: implement
+    type: agent
+    stage: implement
+    mode: subagent
+    dependsOn: [compact-after-planning, baseline]
+    input:
+      workspace: "{{ nodes.create-workspace.output }}"
+
+  - id: compact-after-implement
+    type: context
+    action: compact
+    prompt: "Keep what was implemented, the files touched, and the workspace path."
+    dependsOn: [implement]
+
+  # Pass 1 reviews; a later pass runs the fix stage on the previous pass's findings, then reviews only the fix
+  # commits. It stops on APPROVED, or after its last pass with the rest left in the report.
+  - id: review-loop
+    type: loop
+    dependsOn: [compact-after-implement]
+    until: "{{ iteration.nodes.code-review.output.verdict == 'APPROVED' or iteration.index == iteration.max }}"
+    maxIterations: 2
+    input:
+      workspace: "{{ nodes.create-workspace.output }}"
+    nodes:
+      # A later pass starts the fix stage without pass 1's review in the session.
+      - id: compact-before-fix
+        type: context
+        action: compact
+        when: "{{ iteration.index > 1 }}"
+        prompt: "Keep the workspace path and the run name."
+
+      - id: fix
+        type: agent
+        stage: fix
+        mode: subagent
+        dependsOn: [compact-before-fix]
+        input:
+          workspace: "{{ inputs.workspace }}"
+          fixes: "{{ iteration.previous.findings }}"
+          source: review
+          round: "{{ iteration.index }}"
+
+      - id: code-review
+        type: agent
+        stage: code-review
+        mode: subagent
+        input:
+          workspace: "{{ inputs.workspace }}"
+          round: "{{ iteration.index }}"
+          rounds: "{{ iteration.max }}"
+          previous: "{{ iteration.previous }}"
+
+  - id: compact-after-review
+    type: context
+    action: compact
+    prompt: "Keep the review findings and the workspace path."
+    dependsOn: [review-loop]
+
+  - id: qa-loop
+    type: loop
+    dependsOn: [compact-after-review]
+    until: "{{ iteration.nodes.qa.output.status != 'FAIL' }}"
+    maxIterations: 4
+    input:
+      workspace: "{{ nodes.create-workspace.output }}"
+      task: "{{ nodes.ticket-fetcher.output.task }}"
+      environment: "{{ inputs.environment }}"
+    nodes:
+      - id: fix
+        type: agent
+        stage: fix
+        mode: subagent
+        when: "{{ iteration.index > 1 }}"
+        input:
+          workspace: "{{ inputs.workspace }}"
+          fixes: "{{ iteration.previous.bugs }}"
+          source: qa
+          round: "{{ iteration.index }}"
+
+      - id: qa
+        type: agent
+        stage: qa
+        variables:
+          environment: "{{ inputs.environment }}"
+        input:
+          workspace: "{{ inputs.workspace }}"
+          task: "{{ inputs.task }}"
+          round: "{{ iteration.index }}"
+          rounds: "{{ iteration.max }}"
+
+  - id: commit
+    type: agent
+    stage: git-commit
+    dependsOn: [qa-loop]
+    # A BLOCKED qa could not verify the change, so nothing is published; pr is skipped with it.
+    when: "{{ nodes.qa-loop.output.status != 'BLOCKED' }}"
+    input:
+      workspace: "{{ nodes.create-workspace.output }}"
+
+  - id: pr
+    type: agent
+    stage: visual-pr
+    dependsOn: [commit]
+    input:
+      workspace: "{{ nodes.create-workspace.output }}"
+      task: "{{ nodes.ticket-fetcher.output.task }}"
+      qa: "{{ nodes.qa-loop.output }}"
+
+  # Audits the run for yok defects. always: it runs after a failed node too; allowFailure:
+  # its own failure never changes the run's status.
+  - id: retro
+    type: agent
+    mode: subagent
+    stage: retro
+    notify: false
+    dependsOn: [pr]
+    always: true
+    allowFailure: true
+    input: {}

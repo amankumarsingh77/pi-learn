@@ -1,0 +1,23 @@
+version: 2
+
+baseline: bun run check
+
+workflowPath: .workflows
+
+workspace:
+  layout: mono
+  path: .worktrees/{{ branch }}
+  baseBranch: main
+  setup: bun install
+
+packages:
+  app:
+    path: .
+    runner: bun
+    description: "pi-learn: a teaching extension for the pi coding agent"
+    commands:
+      bootstrap: bun install
+      typecheck: bun run typecheck
+      lint: bun run lint
+      testAll: bun test
+      testFile: bun test {FILE}
