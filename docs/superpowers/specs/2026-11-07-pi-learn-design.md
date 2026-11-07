@@ -315,6 +315,10 @@ cannot act on does not get in.
 
 Four kinds of observation only: reasoning habits, which explanation style
 lands, prior knowledge, and the learner's own words for things.
+Each observation is one line of at most 200 characters, the same cap as
+a profile line it may become, so a block of text the model read in a
+lesson cannot be pasted into observations and ride into the promotion
+pass.
 
 Hard cap: 20 lines. Adding line 21 means dropping the weakest. The learner
 may edit profile.md by hand and delete anything wrong.
@@ -493,7 +497,8 @@ reshaping the build.
 - **`learn_set_node` takes structured fields**: state, explanation,
   diagram, learner words, gap, sources. The extension lays out the
   section, fences the diagram, and rejects any diagram line over 72
-  columns so the model redraws. The model calls it once at EXPLAIN with
+  columns so the model redraws. Each source must be one line with no `|`,
+  so a source cannot forge a heading or a map row in the notes. The model calls it once at EXPLAIN with
   state ○ so the explanation lands in the file even if the learner stops
   before answering, and again at DIAGNOSE with the verdict.
 

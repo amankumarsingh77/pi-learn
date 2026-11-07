@@ -2,7 +2,7 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { OBSERVATION_KINDS } from "../model";
 import { closePromotion } from "../run";
-import { assertValid, profileProblem } from "../validate";
+import { assertValid, observationProblem, profileProblem } from "../validate";
 import { defineLearnTool } from "./define";
 
 export const observeTool = defineLearnTool({
@@ -12,10 +12,12 @@ export const observeTool = defineLearnTool({
     "Record one thing diagnose noticed about how the learner thinks: a reasoning habit, an explanation style that landed, prior knowledge, or their own word for something. Observations never enter the prompt; patterns that repeat across topics are promoted into the profile at the start of a later run.",
   parameters: Type.Object({
     kind: StringEnum(OBSERVATION_KINDS),
-    note: Type.String({ description: "One line a later teacher can act on" }),
+    note: Type.String({
+      description: "One line of at most 200 characters a later teacher can act on",
+    }),
   }),
   async run(params, deps, run) {
-    assertValid(params.note.trim() === "" ? "note must not be empty" : undefined);
+    assertValid(observationProblem(params.note));
     await deps.store.appendObservation({
       topic: run.slug,
       kind: params.kind,

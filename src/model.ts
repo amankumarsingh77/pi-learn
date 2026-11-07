@@ -12,6 +12,8 @@ export const MAX_DIAGRAM_COLUMNS = 72;
 export const MAX_SLUG_LENGTH = 80;
 export const MAX_PROFILE_LINES = 20;
 export const MAX_PROFILE_LINE_LENGTH = 200;
+/** An observation may become one profile line, so it obeys the same length cap. */
+export const MAX_OBSERVATION_LENGTH = MAX_PROFILE_LINE_LENGTH;
 
 export const OBSERVATION_KINDS = ["habit", "style", "prior-knowledge", "own-words"] as const;
 export type ObservationKind = (typeof OBSERVATION_KINDS)[number];

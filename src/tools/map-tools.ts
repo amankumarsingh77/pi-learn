@@ -65,7 +65,9 @@ export const setNodeTool = defineLearnTool({
       Type.String({ description: "The wrong turn the learner took and then fixed" }),
     ),
     gap: Type.Optional(Type.String({ description: "What the learner still misses; omit when ●" })),
-    sources: Type.Optional(Type.Array(Type.String(), { description: "Links used to fact-check" })),
+    sources: Type.Optional(
+      Type.Array(Type.String(), { description: "Links used to fact-check, one link per entry" }),
+    ),
   }),
   async run(params, deps, run) {
     assertValid(
@@ -74,6 +76,7 @@ export const setNodeTool = defineLearnTool({
       ...[params.learner_words, params.trap, params.gap].map((text) =>
         textProblem("text", text ?? ""),
       ),
+      ...(params.sources ?? []).map((source) => singleLineProblem("source", source)),
     );
     const at = params.node - 1;
     const doc = await deps.store.updateTopic(run.slug, (current) => {

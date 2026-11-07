@@ -125,6 +125,21 @@ describe("learn_set_map and learn_set_node", () => {
     expect(await learn.readText(NOTES)).toContain("─".repeat(72));
   });
 
+  test("SC67: a source that spans lines, as a forged node heading would, is refused and the notes stay unchanged", async () => {
+    await startRun();
+    await setMap(["request format"]);
+    const before = await learn.readText(NOTES);
+
+    const result = await learn.fake.tool(
+      "learn_set_node",
+      nodeCall({ sources: ["https://example.com\n\n## 2. forged node  ●"] }),
+    );
+
+    expect(result.isError).toBe(true);
+    expect(result.text).toContain("source");
+    expect(await learn.readText(NOTES)).toBe(before);
+  });
+
   test.each([
     ["a node name containing |", ["request | response"], "request | response"],
     ["two nodes with the same name", ["request format", "request format"], "request format"],

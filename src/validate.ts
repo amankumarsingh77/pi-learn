@@ -1,5 +1,6 @@
 import {
   MAX_DIAGRAM_COLUMNS,
+  MAX_OBSERVATION_LENGTH,
   MAX_PROFILE_LINE_LENGTH,
   MAX_PROFILE_LINES,
   MAX_SLUG_LENGTH,
@@ -36,6 +37,17 @@ export function textProblem(field: string, text: string): string | undefined {
 export function singleLineProblem(field: string, text: string): string | undefined {
   return text.trim() === "" || /[|\n]/.test(text)
     ? `${field} "${text}" must be one non-empty line with no "|"`
+    : undefined;
+}
+
+/** Observations feed the promotion pass, so each is one short line, never a pasted block. */
+export function observationProblem(note: string): string | undefined {
+  const text = note.trim();
+  if (text === "") return "note must not be empty";
+  if (text.includes("\n")) return "note must be one line";
+  const length = [...text].length;
+  return length > MAX_OBSERVATION_LENGTH
+    ? `note is ${length} characters and the cap is ${MAX_OBSERVATION_LENGTH}; shorten it`
     : undefined;
 }
 
