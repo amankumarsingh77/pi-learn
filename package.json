@@ -1,10 +1,21 @@
 {
   "name": "pi-learn",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.1.0",
+  "description": "A pi extension that teaches you a topic: it calibrates, maps the topic, explains with ASCII diagrams, asks one question at a time and diagnoses your reasoning, and keeps shareable notes.",
+  "license": "MIT",
+  "author": "amankumarsingh77",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/amankumarsingh77/pi-learn.git"
+  },
+  "homepage": "https://github.com/amankumarsingh77/pi-learn#readme",
   "type": "module",
   "keywords": [
-    "pi-package"
+    "pi-package",
+    "pi",
+    "pi-extension",
+    "learning",
+    "tutor"
   ],
   "pi": {
     "extensions": [
@@ -29,5 +40,12 @@
     "@types/bun": "latest",
     "typebox": "1.3.27",
     "typescript": "^5.9.0"
-  }
+  },
+  "files": [
+    "src",
+    "!src/**/*.test.ts",
+    "!src/testing",
+    "README.md",
+    "LICENSE"
+  ]
 }
