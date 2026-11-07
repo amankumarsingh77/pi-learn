@@ -9,6 +9,7 @@ let learn: LoadedPiLearn;
 beforeEach(async () => {
   learn = await loadPiLearn();
   await learn.fake.command("/learn new http round trip");
+  await learn.learnerSays("a request goes out and a page comes back");
   await learn.fake.tool("learn_set_map", {
     goal: "explain what happens between typing a URL and seeing the page",
     nodes: [{ name: "request format", depth: "must know" }],

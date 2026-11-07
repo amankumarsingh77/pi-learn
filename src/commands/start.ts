@@ -84,6 +84,7 @@ export async function startRun(
     lookupTools: findLookupTools(deps.pi),
     firstRunEver: index.runs === 1,
     promotionOpen,
+    heardLearner: false,
   };
   attachRun(deps, run);
   if (run.lookupTools.length === 0) {

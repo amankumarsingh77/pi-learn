@@ -19,6 +19,8 @@ export interface LoadedPiLearn {
   readonly root: string;
   readonly store: LearnStore;
   readText(file: string): Promise<string>;
+  /** Fires pi's input event for a message the learner typed. */
+  learnerSays(text: string): Promise<void>;
   /** Fires before_agent_start the way pi does and returns the sections object it was given. */
   promptSections(seed?: Record<string, string>): Promise<Record<string, string>>;
   cleanup(): Promise<void>;
@@ -35,6 +37,9 @@ export async function loadPiLearn(
     root,
     store: createLearnStore(root, () => FIXED_NOW),
     readText: (file) => readFile(join(root, file), "utf8"),
+    async learnerSays(text) {
+      await fake.emit("input", { type: "input", text, source: "interactive" });
+    },
     async promptSections(sectionsSeed = {}) {
       const sections = { ...sectionsSeed };
       await fake.emit("before_agent_start", { systemPromptOptions: { sections } });

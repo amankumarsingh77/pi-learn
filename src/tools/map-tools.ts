@@ -1,6 +1,7 @@
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { DEPTHS, NODE_STATES } from "../model";
+import { calibrationProblem } from "../run";
 import { renderMapTable, renderNodeBody } from "../store/topic-file";
 import {
   assertValid,
@@ -31,18 +32,21 @@ export const setMapTool = defineLearnTool({
       ...names.map((name) => singleLineProblem("node name", name)),
       duplicateProblem("node name", names),
     );
-    const doc = await deps.store.updateTopic(run.slug, (current) => ({
-      ...current,
-      goal: params.goal.trim(),
-      nodes: params.nodes.map((node, i) => ({
-        name: names[i] ?? node.name,
-        depth: node.depth,
-        state: current.nodes.find((old) => old.name === names[i])?.state ?? "○",
-      })),
-      sections: Object.fromEntries(
-        Object.entries(current.sections).filter(([name]) => names.includes(name)),
-      ),
-    }));
+    const doc = await deps.store.updateTopic(run.slug, (current) => {
+      assertValid(calibrationProblem(run, current.nodes.length));
+      return {
+        ...current,
+        goal: params.goal.trim(),
+        nodes: params.nodes.map((node, i) => ({
+          name: names[i] ?? node.name,
+          depth: node.depth,
+          state: current.nodes.find((old) => old.name === names[i])?.state ?? "○",
+        })),
+        sections: Object.fromEntries(
+          Object.entries(current.sections).filter(([name]) => names.includes(name)),
+        ),
+      };
+    });
     return `Map saved.\n${renderMapTable(doc.nodes)}`;
   },
 });
@@ -51,7 +55,7 @@ export const setNodeTool = defineLearnTool({
   name: "learn_set_node",
   label: "Save learn node",
   description:
-    "Write a node's section and state. Call it at EXPLAIN with state ○, so the explanation is saved even if the learner stops before answering, and again at DIAGNOSE with the verdict. Each call rewrites the whole section, so send the correct model every time.",
+    "Write a node's section and state. Call it at EXPLAIN with state ○, so the explanation is saved even if the learner stops before answering, and again at DIAGNOSE with the verdict. Each call rewrites the whole section, so send the full correct model every time, not only what changed.",
   parameters: Type.Object({
     node: Type.Integer({ minimum: 1, description: "Node number from the map" }),
     state: StringEnum(NODE_STATES, {
@@ -59,7 +63,7 @@ export const setNodeTool = defineLearnTool({
     }),
     explanation: Type.String({
       description:
-        "The correct model in simple words, as short paragraphs of two to four sentences separated by a blank line",
+        "The whole correct model of this node as you taught it: the link to the previous node first, then each idea before the ideas that depend on it, in short paragraphs of two to four sentences separated by a blank line. At DIAGNOSE resend this model with the fixed piece worked in; never replace it with the answer to the question.",
     }),
     diagram: Type.String({
       description: "ASCII diagram without fences, at most 72 columns per line",

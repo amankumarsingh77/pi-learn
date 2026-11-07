@@ -14,6 +14,7 @@ describe("the pi_learn system prompt section", () => {
     expect(idle).toEqual({ other: "kept" });
 
     await learn.fake.command("/learn new http round trip");
+    await learn.learnerSays("a request goes out and a page comes back");
     await learn.fake.tool("learn_set_map", {
       goal: "explain an HTTP round trip",
       nodes: [
@@ -104,5 +105,39 @@ describe("lookup tools", () => {
       { type: "warning", message: expect.stringContaining("cannot be fact-checked") },
     ]);
     expect(without).toContain("No lookup tools are available");
+  });
+});
+
+describe("linking back to earlier nodes", () => {
+  test("SC75: the section lists each taught node's first paragraph and the learner's words, capped, and leaves out untaught nodes", async () => {
+    learn = await loadPiLearn();
+    await learn.fake.command("/learn new http round trip");
+    await learn.learnerSays("a request goes out and a page comes back");
+    await learn.fake.tool("learn_set_map", {
+      goal: "explain a round trip",
+      nodes: [
+        { name: "request format", depth: "must know" },
+        { name: "response codes", depth: "must know" },
+      ],
+    });
+    await learn.fake.tool("learn_set_node", {
+      node: 1,
+      state: "●",
+      explanation: `A request is a start line, headers and a body. ${"Then more. ".repeat(40)}\n\nSecond paragraph.`,
+      diagram: "GET / HTTP/1.1",
+      learner_words: "it is like a letter",
+    });
+
+    const section = (await learn.promptSections()).pi_learn ?? "";
+
+    expect(section).toContain("Taught so far. Open each new node by linking it to these:");
+    expect(section).toContain(
+      "- 1. request format (●): A request is a start line, headers and a body.",
+    );
+    expect(section).toContain('Their words: "it is like a letter"');
+    expect(section).toContain("Then more. Then more.");
+    expect(section).toMatch(/\(●\): .{239}…\n/u);
+    expect(section).not.toContain("Second paragraph.");
+    expect(section).not.toContain("- 2. response codes");
   });
 });

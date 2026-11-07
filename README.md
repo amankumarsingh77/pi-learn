@@ -31,9 +31,9 @@ Needs pi 1.4 or later. Sharing notes also needs the [GitHub CLI](https://cli.git
 
 A lesson goes like this:
 
-1. **Calibrate.** It asks what you already know about the topic. Say what you actually think, even if it's wrong.
-2. **Map and pitch.** It proposes a short list of nodes, each "must know" or "enough". It also says in one sentence where it will start and which terms it will use without explaining. Edit either, then say "good".
-3. **Teach each node.** It explains in plain words with a diagram, asks one question, and reads your reasoning:
+1. **Calibrate.** It asks what you already know about the topic. Say what you actually think, even if it's wrong. It builds no map until you've answered.
+2. **Map and pitch.** It proposes a short list of nodes in teaching order, so each node needs only the ones before it, each "must know" or "enough". It also says in one sentence where it will start and which terms it will use without explaining. Edit either, then say "good".
+3. **Teach each node.** It opens from what the previous node taught, builds the idea one step at a time with a diagram, asks one question, and reads your reasoning:
    - right answer, right reasoning: ●
    - right answer, wrong reasoning: ◐, and it fixes the mental model
    - wrong answer, partly right reasoning: it finds the step where you went wrong
@@ -56,6 +56,8 @@ Everything lives in `~/.pi/learn/`. Set `PI_LEARN_DIR` to use another folder.
 ├── profile.md           at most 20 short notes on how you learn; edit or delete freely
 └── observations.jsonl   raw evidence the profile is built from
 ```
+
+During a lesson the model can't open this folder with its file or shell tools; pi-learn reads and writes it for the model.
 
 `<topic>.md` is plain Markdown, so it reads fine in any editor or on GitHub. `/learn share` uploads only that file, as a secret gist. A secret gist is unlisted, not private: anyone with the link can read it. Later shares update the same gist. `profile.md` and `observations.jsonl` are never shared.
 

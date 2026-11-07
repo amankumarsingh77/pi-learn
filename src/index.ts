@@ -5,8 +5,9 @@ import { registerLearnCommand } from "./commands/table";
 import type { LearnDeps } from "./deps";
 import { errorMessage } from "./errors";
 import { restoreRun } from "./lifecycle";
+import { guardNotesFolder, notesPathForms } from "./notes-guard";
 import { buildTeachingSection } from "./prompt";
-import { type ActiveRun, closePromotion, createRunSlot } from "./run";
+import { type ActiveRun, closePromotion, createRunSlot, markHeardLearner } from "./run";
 import { type Clock, createLearnStore } from "./store/learn-store";
 import { LEARN_TOOLS, registerLearnTools } from "./tools/table";
 
@@ -38,6 +39,10 @@ export function createPiLearn(options: PiLearnOptions): (pi: ExtensionAPI) => vo
     });
     pi.on("session_start", (_event, ctx) => restoreRun(deps, ctx));
     pi.on("turn_end", () => closePromotion(deps.slot));
+    pi.on("tool_call", guardNotesFolder(deps, notesPathForms(options.root, homedir())));
+    pi.on("input", (event) => {
+      if (event.source !== "extension") markHeardLearner(deps.slot);
+    });
   };
 }
 

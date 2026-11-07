@@ -60,6 +60,8 @@ export async function restoreRun(deps: LearnDeps, ctx: ExtensionContext): Promis
     lookupTools: findLookupTools(deps.pi),
     firstRunEver: false,
     promotionOpen: false,
+    // The restored session already holds the learner's messages.
+    heardLearner: true,
   });
   ctx.ui.notify(`pi-learn: back in your learn run on ${slug}. /learn stop ends it.`, "info");
 }

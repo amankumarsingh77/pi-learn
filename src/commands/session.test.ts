@@ -13,6 +13,7 @@ afterEach(() => learn.cleanup());
 /** An active run on http-round-trip with a 2-node map and one parked side topic. */
 async function startMappedRun(): Promise<void> {
   await learn.fake.command("/learn new http round trip");
+  await learn.learnerSays("a request goes out and a page comes back");
   await learn.fake.tool("learn_set_map", {
     goal: "explain an HTTP round trip",
     nodes: [

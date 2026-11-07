@@ -1,4 +1,5 @@
 import { Type } from "typebox";
+import { calibrationProblem } from "../run";
 import { assertValid, duplicateProblem, singleLineProblem, termProblem } from "../validate";
 import { defineLearnTool } from "./define";
 
@@ -24,10 +25,10 @@ export const setPitchTool = defineLearnTool({
       ...[...assume, ...define].map(termProblem),
       duplicateProblem("term", [...assume, ...define]),
     );
-    await deps.store.updateTopic(run.slug, (doc) => ({
-      ...doc,
-      pitch: { startFrom: params.start_from.trim(), assume, define },
-    }));
+    await deps.store.updateTopic(run.slug, (doc) => {
+      assertValid(calibrationProblem(run, doc.nodes.length));
+      return { ...doc, pitch: { startFrom: params.start_from.trim(), assume, define } };
+    });
     return "Pitch saved.";
   },
 });

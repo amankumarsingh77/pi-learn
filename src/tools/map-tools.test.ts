@@ -13,7 +13,10 @@ beforeEach(async () => {
 
 afterEach(() => learn.cleanup());
 
-const startRun = () => learn.fake.command("/learn new http round trip");
+const startRun = async () => {
+  await learn.fake.command("/learn new http round trip");
+  await learn.learnerSays("a request goes out and a page comes back");
+};
 
 const setMap = (names: readonly string[]) =>
   learn.fake.tool("learn_set_map", {
@@ -218,5 +221,37 @@ describe("learn_set_node notes readability", () => {
     const notes = await learn.readText(NOTES);
     expect(notes).toContain('my words: "it is like a letter"');
     expect(notes).not.toContain('""');
+  });
+});
+
+describe("calibrate before the map", () => {
+  const firstMap = () => setMap(["request format"]);
+
+  test("SC73: on a new topic, learn_set_map and learn_set_pitch are refused until the learner has typed a message, then accepted", async () => {
+    await learn.fake.command("/learn new http round trip");
+    await learn.fake.emit("input", { type: "input", text: "kickoff", source: "extension" });
+
+    const map = await firstMap();
+    const pitch = await learn.fake.tool("learn_set_pitch", {
+      start_from: "Starts from the request line",
+      assume: [],
+      define: [],
+    });
+
+    expect(map).toEqual({ isError: true, text: expect.stringContaining("Calibrate first") });
+    expect(pitch).toEqual({ isError: true, text: expect.stringContaining("Calibrate first") });
+    await learn.learnerSays("a request goes out and a page comes back");
+    expect((await firstMap()).isError).toBe(false);
+  });
+
+  test("SC74: a resumed topic that already has a map can change it before the learner types anything", async () => {
+    await startRun();
+    await firstMap();
+    await learn.fake.command("/learn stop");
+    await learn.fake.command("/learn resume http round trip");
+
+    const result = await setMap(["request format", "response codes"]);
+
+    expect(result.isError).toBe(false);
   });
 });

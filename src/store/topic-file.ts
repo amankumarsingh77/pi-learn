@@ -104,12 +104,23 @@ export function renderNodeBody(content: NodeContent): string {
   ].join("\n");
 }
 
-export function gapOf(body: string): string | undefined {
-  return body
+const fieldOf = (body: string, prefix: string): string | undefined =>
+  body
     .split("\n")
-    .find((line) => line.startsWith(GAP_PREFIX))
-    ?.slice(GAP_PREFIX.length);
-}
+    .find((line) => line.startsWith(prefix))
+    ?.slice(prefix.length);
+
+export const gapOf = (body: string): string | undefined => fieldOf(body, GAP_PREFIX);
+
+/** The learner's words as written in the notes, quotes included. */
+export const wordsOf = (body: string): string | undefined => fieldOf(body, WORDS_PREFIX);
+
+/** The first paragraph of a node's explanation, on one line: where the node started. */
+export const openingOf = (body: string): string =>
+  body
+    .split(/\n\s*\n|\n```/)[0]
+    ?.replace(/\s*\n\s*/g, " ")
+    .trim() ?? "";
 
 interface Block {
   readonly heading: string;

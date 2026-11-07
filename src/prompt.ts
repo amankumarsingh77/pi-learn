@@ -1,13 +1,13 @@
 import type { Pitch, TopicDoc } from "./model";
 import type { ActiveRun } from "./run";
-import { gapOf, renderMapTable } from "./store/topic-file";
+import { gapOf, openingOf, renderMapTable, wordsOf } from "./store/topic-file";
 
 export const KICKOFF_MESSAGE = "pi-learn-kickoff";
 export const RUN_ENDED_MESSAGE = "pi-learn-run-ended";
 
 export const TEACHING_RULES = `You are running a pi-learn teaching session. Every learner message is part of the lesson.
 
-Loop: CALIBRATE (ask what they already know about the topic, even if wrong) -> MAP and PITCH (a goal and a node list, each node "must know" or "enough", plus one plain sentence on how you will pitch it: where you start, which terms you will use freely and which you will define; the learner edits and agrees to both before any teaching) -> for each ○ or ◐ node: EXPLAIN (simple words in short paragraphs + ASCII diagram) -> ASK one question -> LISTEN to their raw thinking -> DIAGNOSE. When every "must know" node is ●, run a FINAL CHECK: one question spanning all nodes. A failed final check sends the broken node back to ◐.
+Loop: CALIBRATE (ask what they already know about the topic, even if wrong) -> MAP and PITCH (a goal and a node list, each node "must know" or "enough", plus one plain sentence on how you will pitch it: where you start, which terms you will use freely and which you will define; the learner edits and agrees to both before any teaching) -> for each ○ or ◐ node: EXPLAIN (link to what came before, then build the idea step by step in short paragraphs + ASCII diagram) -> ASK one question -> LISTEN to their raw thinking -> DIAGNOSE. When every "must know" node is ●, run a FINAL CHECK: one question spanning all nodes. A failed final check sends the broken node back to ◐.
 
 Diagnose the answer and the reasoning separately:
 - right answer, right reasoning: confirm, mark ●, move on.
@@ -15,6 +15,14 @@ Diagnose the answer and the reasoning separately:
 - wrong answer, partly right reasoning: find the exact step where it broke and re-explain that step.
 - wrong answer, wrong reasoning: re-explain from the missing foundation, mark ✗.
 - thin answer ("idk", "yes", "the second one"): no verdict. Ask for their thinking.
+
+Order:
+- Hear the learner before you map. Ask the calibration questions, wait for their answer, and only then call learn_set_map or learn_set_pitch: a map built before they answer is pitched at nobody.
+- Order the map so each node needs only the nodes before it and the terms the pitch assumes. A misconception you plan to fix first goes in an early node.
+- Open every node with one or two sentences linking it to what the learner already has: name the idea from the previous node, in the learner's own words when you have them, and the question it left open that this node answers.
+- Inside a node, build one chain. If idea B depends on idea A, explain A fully, then B. Never use a term before you explain it, and never lean on a later node's idea; when you must, give it the two-line inline definition first.
+- Let prose carry the reasoning ("because", "so", "which means"). A list is for parallel items once the idea is built, never the explanation itself.
+- Ask only about what this node built. If the question needs an idea, teach that idea first.
 
 Rules:
 - Simple, direct words. Short sentences, and paragraphs of two to four sentences: the notes are read on GitHub, where a long paragraph is a wall of text. Define a term in one line the first time you use it, unless the pitch says to assume it.
@@ -27,6 +35,7 @@ Rules:
 - Breadth first. Go one level deeper only where the learner's words show a gap, and only if it serves the goal.
 - A small prerequisite gets two inline lines. A big one gets one line and is parked as a side topic.
 - Store the learner's own words for every node, including ● ones. When they fixed a wrong turn, keep it as the trap they fell into.
+- The notes are the learner's study copy. Write them to the learner as "you", in the order you taught, never as a log of how the session went.
 - Write access is for throwaway scripts that prove or check something. Persist nothing except through the learn_* tools.
 - Never read ~/.pi/learn with file tools. Everything you need is in this prompt.`;
 
@@ -52,10 +61,33 @@ export function buildTeachingSection(doc: TopicDoc, run: ActiveRun, profile: str
       : `Topic: ${doc.slug}. Goal: ${doc.goal}`,
     pitchText(doc.pitch),
     doc.nodes.length > 0 ? `Map:\n${renderMapTable(doc.nodes)}` : "",
+    taughtSoFar(doc),
     gaps.length > 0 ? `Open gaps:\n${gaps.join("\n")}` : "",
   ]
     .filter((part) => part !== "")
     .join("\n\n");
+}
+
+const OPENING_CAP = 240;
+const WORDS_CAP = 160;
+
+const capped = (text: string, cap: number): string =>
+  [...text].length > cap ? `${[...text].slice(0, cap - 1).join("")}…` : text;
+
+/** What each taught node said, so a new node can link back even after a resume wiped the chat. */
+function taughtSoFar(doc: TopicDoc): string {
+  const lines = doc.nodes.flatMap((node, i) => {
+    const body = doc.sections[node.name];
+    if (node.state === "○" || body === undefined) return [];
+    const words = wordsOf(body);
+    return [
+      `- ${i + 1}. ${node.name} (${node.state}): ${capped(openingOf(body), OPENING_CAP)}`,
+      ...(words ? [`  Their words: ${capped(words, WORDS_CAP)}`] : []),
+    ];
+  });
+  return lines.length === 0
+    ? ""
+    : ["Taught so far. Open each new node by linking it to these:", ...lines].join("\n");
 }
 
 const lookupLine = (tools: readonly string[]): string =>
@@ -137,7 +169,7 @@ export function newRunKickoff(input: NewRunKickoff): string {
   return [
     `Start a new learn run on "${input.title}".`,
     promotionText(input.promotion),
-    `Then begin with CALIBRATE.\n\n${earlier}`,
+    `Then begin with CALIBRATE, and wait for the learner's answer before you call learn_set_map or learn_set_pitch.\n\n${earlier}`,
   ].join("\n\n");
 }
 
