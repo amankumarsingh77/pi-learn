@@ -182,3 +182,41 @@ describe("learn_add_side_topic", () => {
     expect(notes.split("HTTP/2 framing").length - 1).toBe(1);
   });
 });
+
+describe("learn_set_node notes readability", () => {
+  const sentence = "An edge keeps a copy of each segment so viewers nearby skip the trip. ";
+
+  test("SC68: an explanation paragraph over 600 characters is refused naming the paragraph, and the same text split into short paragraphs is saved with its blank lines", async () => {
+    await startRun();
+    await setMap(["request format"]);
+    const before = await learn.readText(NOTES);
+    const wall = sentence.repeat(9).trim();
+
+    const refused = await learn.fake.tool(
+      "learn_set_node",
+      nodeCall({ explanation: `Short intro.\n\n${wall}` }),
+    );
+
+    expect(refused.isError).toBe(true);
+    expect(refused.text).toContain("explanation paragraph 2 is");
+    expect(refused.text).toContain("600");
+    expect(await learn.readText(NOTES)).toBe(before);
+
+    const split = [sentence.repeat(4).trim(), sentence.repeat(5).trim()].join("\n\n");
+    const accepted = await learn.fake.tool("learn_set_node", nodeCall({ explanation: split }));
+
+    expect(accepted.isError).toBe(false);
+    expect(await learn.readText(NOTES)).toContain(`## 1. request format  ○\n${split}\n\`\`\``);
+  });
+
+  test("SC69: learner words the model already wrapped in quotes are written with one pair of quotes", async () => {
+    await startRun();
+    await setMap(["request format"]);
+
+    await learn.fake.tool("learn_set_node", nodeCall({ learner_words: '"it is like a letter"' }));
+
+    const notes = await learn.readText(NOTES);
+    expect(notes).toContain('my words: "it is like a letter"');
+    expect(notes).not.toContain('""');
+  });
+});

@@ -6,6 +6,7 @@ import {
   assertValid,
   diagramProblem,
   duplicateProblem,
+  explanationProblem,
   singleLineProblem,
   textProblem,
 } from "../validate";
@@ -56,7 +57,10 @@ export const setNodeTool = defineLearnTool({
     state: StringEnum(NODE_STATES, {
       description: "○ untouched, ◐ shaky (right answer, wrong reason), ● solid, ✗ wrong",
     }),
-    explanation: Type.String({ description: "The correct model in simple words" }),
+    explanation: Type.String({
+      description:
+        "The correct model in simple words, as short paragraphs of two to four sentences separated by a blank line",
+    }),
     diagram: Type.String({
       description: "ASCII diagram without fences, at most 72 columns per line",
     }),
@@ -72,7 +76,7 @@ export const setNodeTool = defineLearnTool({
   async run(params, deps, run) {
     assertValid(
       diagramProblem(params.diagram),
-      textProblem("explanation", params.explanation),
+      explanationProblem(params.explanation),
       ...[params.learner_words, params.trap, params.gap].map((text) =>
         textProblem("text", text ?? ""),
       ),

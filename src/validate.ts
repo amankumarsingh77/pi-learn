@@ -1,6 +1,7 @@
 import {
   MAX_DIAGRAM_COLUMNS,
   MAX_OBSERVATION_LENGTH,
+  MAX_PARAGRAPH_LENGTH,
   MAX_PROFILE_LINE_LENGTH,
   MAX_PROFILE_LINES,
   MAX_SLUG_LENGTH,
@@ -32,6 +33,18 @@ export function textProblem(field: string, text: string): string | undefined {
   return breaksLayout
     ? `${field} must not contain lines starting with "## " or "\`\`\`"`
     : undefined;
+}
+
+/** The notes render as Markdown, where a long paragraph with no breaks is hard to read. */
+export function explanationProblem(text: string): string | undefined {
+  const lengths = text.split(/\n\s*\n/).map((paragraph) => [...paragraph.trim()].length);
+  const at = lengths.findIndex((length) => length > MAX_PARAGRAPH_LENGTH);
+  return (
+    textProblem("explanation", text) ??
+    (at === -1
+      ? undefined
+      : `explanation paragraph ${at + 1} is ${lengths[at]} characters and the cap is ${MAX_PARAGRAPH_LENGTH}; split it into short paragraphs of a few sentences, separated by a blank line`)
+  );
 }
 
 export function singleLineProblem(field: string, text: string): string | undefined {

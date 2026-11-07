@@ -87,8 +87,9 @@ export function renderTopic(doc: TopicDoc): string {
 
 export function renderNodeBody(content: NodeContent): string {
   const oneLine = (text: string) => text.trim().replace(/\s*\n\s*/g, " ");
+  const quoted = (text: string) => `"${oneLine(text).replace(/^"([^"]*)"$/, "$1")}"`;
   const fields = [
-    ...(content.learnerWords ? [`${WORDS_PREFIX}"${oneLine(content.learnerWords)}"`] : []),
+    ...(content.learnerWords ? [`${WORDS_PREFIX}${quoted(content.learnerWords)}`] : []),
     ...(content.trap ? [`${TRAP_PREFIX}${oneLine(content.trap)}`] : []),
     ...(content.gap ? [`${GAP_PREFIX}${oneLine(content.gap)}`] : []),
     ...(content.sources.length > 0 ? [`${SOURCES_PREFIX}${content.sources.join(", ")}`] : []),

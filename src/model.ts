@@ -8,6 +8,8 @@ export const TOPIC_STATUSES = ["in-progress", "done"] as const;
 export type TopicStatus = (typeof TOPIC_STATUSES)[number];
 
 export const MAX_DIAGRAM_COLUMNS = 72;
+/** Long enough for four or five sentences; longer reads as a wall of text on GitHub. */
+export const MAX_PARAGRAPH_LENGTH = 600;
 /** Keeps `<slug>.md` well under the 255-byte file-name limit of common filesystems. */
 export const MAX_SLUG_LENGTH = 80;
 export const MAX_PROFILE_LINES = 20;
