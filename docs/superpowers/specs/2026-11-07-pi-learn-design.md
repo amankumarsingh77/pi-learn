@@ -85,8 +85,10 @@ These are the user's calls, as made in conversation.
 12. **A learn run takes over the pi session.** While a run is active every
     message is treated as part of the lesson. `/learn stop` (or the model
     calling `learn_pause` when the learner says they are done) saves node
-    states, prints the map, and detaches the teaching prompt so pi returns
-    to normal coding use.
+    states, prints the map, detaches the teaching prompt, and adds a
+    hidden note to the conversation saying the lesson is over, so pi
+    returns to normal coding use: the chat still holds the lesson, and
+    without the note the model keeps asking its last question.
 
 ## The teaching loop
 
@@ -99,8 +101,9 @@ These are the user's calls, as made in conversation.
                           ▼
   ┌─────────────────────────────────────────────┐
   │ 1. MAP         goal check + node list with   │
-  │                depth per node. Learner edits │
-  │                and agrees before teaching.   │
+  │                depth per node, plus a one-   │
+  │                line pitch. Learner edits and │
+  │                agrees to both first.         │
   └───────────────────────┬─────────────────────┘
                           ▼
   ┌─────────────────────────────────────────────┐
@@ -160,6 +163,19 @@ learner's raw text shows a gap there. Before every deeper step the agent
 checks: does this help answer the original goal? If not, it is a side topic,
 noted and offered at the end.
 
+### Pitch
+
+The agent pitches each topic to what the learner already knows, judged
+from evidence, never set by the learner. At calibration it reads the raw
+answer and decides where teaching starts, which terms it uses freely and
+which it defines on first use. It shows that pitch in one plain sentence
+beside the map, so both get one "OK?". It saves the pitch in the topic's
+front matter (`start-from`, `assume`, `define`) and updates it through
+`learn_set_pitch` when the learner uses a term correctly, misuses one,
+asks "what's X?", or says "too basic" or "too much". A later topic's
+calibration sees the terms earlier topics already assume. The pitch
+changes how much is explained, never the teacher voice.
+
 ### Prerequisite mid-run
 
 Small ("what is a port?"): explain inline in two lines. Big: give the
@@ -172,6 +188,10 @@ The run ends when every must-know node is ● and the final check passes, or
 when the learner says stop. In both cases the agent prints the map with
 current states, the side topics it parked, and the path to the notes file.
 On finish, the parked side topics are offered as the next topic.
+Stop, pause and finish all add the same hidden "the lesson is over" note,
+which starts no turn. It is appended at once rather than queued for the
+next turn, so it never lands after the kickoff of a run started before the
+learner's next message.
 
 ## Files
 
@@ -183,6 +203,10 @@ On finish, the parked side topics are offered as the next topic.
   └── <topic>.md            one per topic
 ```
 
+`<topic>` is the topic's slug: its title in lowercase letters, digits
+and dashes, cut to 80 characters so the file name stays within
+filesystem limits. `index.json` keeps the full title.
+
 ### `<topic>.md`
 
 Carries its own state. Human readable, machine parseable.
@@ -191,6 +215,9 @@ Carries its own state. Human readable, machine parseable.
   ---
   topic: http-round-trip
   goal: how a request goes client -> server -> back
+  start-from: browser side known, server side new
+  assume: URL, browser, DNS
+  define: request headers, routing, status codes
   status: in-progress
   ---
 
@@ -208,7 +235,9 @@ Carries its own state. Human readable, machine parseable.
   <ascii diagram, always fenced, max 72 columns>
   ```
   my words: "the server just runs the code?"
+
   gap: didn't know about routing before the handler
+
   sources: <links used to fact-check>
 
   ## Skipped
@@ -219,26 +248,35 @@ Carries its own state. Human readable, machine parseable.
 Node sections are rewritten, not appended. The final text holds the correct
 model, with the learner's own wrong turn kept as "the trap I fell into".
 The learner's own words are stored for every node, including ● ones, not
-only the shaky ones. That is what makes the notes theirs.
+only the shaky ones. That is what makes the notes theirs. A blank line
+separates the field lines after the diagram, so Markdown and the shared
+gist show each as its own paragraph; notes that hold them on consecutive
+lines still parse.
 
 ### `index.json`
 
 ```
   {
-    "http-round-trip": {
-      "title": "HTTP round-trip",
-      "file": "http-round-trip.md",
-      "status": "in-progress",
-      "updated": "2026-11-06T10:21Z",
-      "gist": "https://gist.github.com/..."
+    "runs": 4,
+    "observations_reviewed": 12,
+    "share_notice_shown": true,
+    "topics": {
+      "http-round-trip": {
+        "title": "HTTP round-trip",
+        "file": "http-round-trip.md",
+        "status": "in-progress",
+        "updated": "2026-11-06T10:21Z",
+        "gist": "https://gist.github.com/..."
+      }
     }
   }
 ```
 
-Two top-level fields sit beside the topics: `runs`, the run counter used
-for profile decay, and `observations_reviewed`, the line count of
-observations.jsonl at the last promotion pass, so the next pass knows
-where to start.
+Topics sit under `topics`, so a topic named `runs` cannot collide with
+the counters beside it: `runs`, the run counter used for profile decay;
+`observations_reviewed`, the line count of observations.jsonl at the
+last promotion pass, so the next pass knows where to start; and
+`share_notice_shown`, so the unlisted-gist warning shows only once.
 
 ### `profile.md` and `observations.jsonl`
 
@@ -281,12 +319,35 @@ lands, prior knowledge, and the learner's own words for things.
 Hard cap: 20 lines. Adding line 21 means dropping the weakest. The learner
 may edit profile.md by hand and delete anything wrong.
 
+The model writes profile.md, and every later run puts it in the system
+prompt, so a line the model was talked into saving would persist across
+sessions. Three checks keep that in bounds.
+
+The prompt frames the profile as notes on how this learner learns. They
+shape how the model teaches and are not instructions: it never runs a
+tool, changes a file or changes its rules because a profile line says
+so. The promotion pass labels the current profile and the unreviewed
+observations the same way, as the learner's notes and as data.
+
+`learn_set_profile` works only during the promotion pass of a run
+started by `/learn new`, and only once per run. The pass closes when
+the profile is saved, when any other `learn_*` tool runs, or when the
+run's first turn ends, whichever comes first; code closes it, not the
+model. A resumed or restored run, a `/learn new` with nothing to
+promote, a second call and a call after the pass has closed are all
+refused, and profile.md is left as it was.
+
+Every non-blank profile line must end with `<!-- last_seen: N -->`,
+where N is a positive run number, and be at most 200 characters. A write
+that breaks this is refused with the line number and what is wrong.
+
 ## Commands
 
 ```
   /learn new <topic>        calibrate, map, get yes, teach
   /learn resume <topic>     rebuild map from notes, continue at first ◐ or ○
-  /learn list               topics + states from index.json
+  /learn list               topics + states from index.json, each
+                            with its last update as a local date
   /learn profile            print profile.md
   /learn share [topic]      upload <topic>.md to a private gist
   /learn stop               save states, print map, detach teaching prompt
@@ -354,24 +415,33 @@ extension docs:
   sub-command parsing on `args`.
 - `pi.registerTool(...)` for file-owning tools the model calls:
   - `learn_set_map` writes the map table after the learner agrees to it
+  - `learn_set_pitch` saves the topic's pitch (`start-from`, `assume`,
+    `define`) and updates it as the learner's words show more
   - `learn_set_node` sets a node's state and rewrites its section
   - `learn_add_side_topic` records a skipped or parked topic
   - `learn_observe` appends one line to observations.jsonl
   - `learn_finish` marks the topic done
   - `learn_pause` same as `/learn stop`, for when the learner says stop
   - `learn_set_profile` rewrites profile.md (called only during the
-    promotion pass at the start of `/learn new`)
+    promotion pass in the first turn of `/learn new`, before any
+    other `learn_*` tool)
 - `pi.on("before_agent_start", ...)` to inject the teaching rules,
   profile, and current map into the system prompt while a run is active.
 - Active-run state lives in extension memory for the pi session and is
-  recoverable from the topic file.
+  recoverable from the topic file. The active topic is also recorded as
+  a pi session entry (`pi.appendEntry`), so reopening the session with
+  `pi --resume` restores the run.
 
 The extension does not disable any built-in tools.
 
 ## Fixed rules in the teaching prompt
 
-- Simple, direct words. Short sentences. No jargon without a one-line
-  definition.
+- Simple, direct words. Short sentences. Define a term in one line the
+  first time it is used, unless the pitch says to assume it.
+- Sound like a good teacher talking to one person: warm, plain, direct.
+  No filler ("Great question!", "Let's dive in"), no hype words, no wall
+  of bullets where two sentences will do. The pitch changes how much is
+  explained, never this voice.
 - Every flow gets an ASCII diagram, fenced, max 72 columns. If a line
   exceeds width, redraw.
 - Ask one question at a time.
@@ -407,9 +477,11 @@ reshaping the build.
   is any `/learn new` or `/learn resume`; a run counter lives in
   index.json under a top-level `runs` field, and each profile line
   carries a hidden `last_seen` run number in an HTML comment.
-- **Learn runs do not survive a pi restart.** After restart the learner
-  types `/learn resume <topic>`. `/learn share` without a topic right
-  after restart says no session is active. Several topics may be
+- **A learn run survives a pi restart only through `pi --resume`.**
+  (Changed at design review; this was "does not survive".) Reopening the
+  same session restores its run. A fresh `pi` or `/new` starts with no
+  run: the learner types `/learn resume <topic>`, and `/learn share`
+  without a topic says no session is active. Several topics may be
   in-progress at once; only one is active in a pi session.
 - **Calibration context is injected by the extension, not read by the
   model.** It injects every topic's title, goal, and status, plus the map
@@ -490,3 +562,20 @@ agent: "you already have request
 - Other question shapes: "finish this diagram", "predict the output".
 - Topic links: notes linking to another topic file when a prerequisite
   became its own run.
+
+## Changes after design and plan review
+
+- Runs are restored when a session is reopened with `pi --resume`
+  (design D1), instead of never surviving a restart.
+- The pitch: `start-from`, `assume` and `define` in the front matter,
+  shown with the map, kept current by `learn_set_pitch`, and carried into
+  later calibrations (design D3, plan phase 5).
+- A fixed teacher-voice rule in the teaching prompt.
+- `index.json` nests topics under `topics` and adds `share_notice_shown`.
+- The learner profile is hardened against prompt injection after a
+  security review: the prompt frames it as notes rather than
+  instructions, `learn_set_profile` is gated to one write in a
+  `/learn new` promotion pass that closes after the first turn or the
+  first other `learn_*` call, and each profile line must carry a
+  `last_seen` marker and stay within 200 characters.
+- Decision record: docs/adr/0001-topic-notes-file-holds-map-and-node-state.md.
