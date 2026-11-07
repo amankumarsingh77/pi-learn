@@ -1,0 +1,126 @@
+import { StringEnum } from "@earendil-works/pi-ai";
+import { Type } from "typebox";
+import { DEPTHS, NODE_STATES } from "../model";
+import { renderMapTable, renderNodeBody } from "../store/topic-file";
+import {
+  assertValid,
+  diagramProblem,
+  duplicateProblem,
+  singleLineProblem,
+  textProblem,
+} from "../validate";
+import { defineLearnTool } from "./define";
+
+export const setMapTool = defineLearnTool({
+  name: "learn_set_map",
+  label: "Save learn map",
+  description:
+    "Save the goal and node map once the learner agrees to it, and again whenever they change it. A node keeps its state while its name is unchanged.",
+  parameters: Type.Object({
+    goal: Type.String({ description: "One line: what the learner wants to be able to explain" }),
+    nodes: Type.Array(Type.Object({ name: Type.String(), depth: StringEnum(DEPTHS) }), {
+      minItems: 1,
+      description: "In teaching order",
+    }),
+  }),
+  async run(params, deps, run) {
+    const names = params.nodes.map((node) => node.name.trim());
+    assertValid(
+      singleLineProblem("goal", params.goal),
+      ...names.map((name) => singleLineProblem("node name", name)),
+      duplicateProblem("node name", names),
+    );
+    const doc = await deps.store.updateTopic(run.slug, (current) => ({
+      ...current,
+      goal: params.goal.trim(),
+      nodes: params.nodes.map((node, i) => ({
+        name: names[i] ?? node.name,
+        depth: node.depth,
+        state: current.nodes.find((old) => old.name === names[i])?.state ?? "○",
+      })),
+      sections: Object.fromEntries(
+        Object.entries(current.sections).filter(([name]) => names.includes(name)),
+      ),
+    }));
+    return `Map saved.\n${renderMapTable(doc.nodes)}`;
+  },
+});
+
+export const setNodeTool = defineLearnTool({
+  name: "learn_set_node",
+  label: "Save learn node",
+  description:
+    "Write a node's section and state. Call it at EXPLAIN with state ○, so the explanation is saved even if the learner stops before answering, and again at DIAGNOSE with the verdict. Each call rewrites the whole section, so send the correct model every time.",
+  parameters: Type.Object({
+    node: Type.Integer({ minimum: 1, description: "Node number from the map" }),
+    state: StringEnum(NODE_STATES, {
+      description: "○ untouched, ◐ shaky (right answer, wrong reason), ● solid, ✗ wrong",
+    }),
+    explanation: Type.String({ description: "The correct model in simple words" }),
+    diagram: Type.String({
+      description: "ASCII diagram without fences, at most 72 columns per line",
+    }),
+    learner_words: Type.Optional(Type.String({ description: "The learner's own words, verbatim" })),
+    trap: Type.Optional(
+      Type.String({ description: "The wrong turn the learner took and then fixed" }),
+    ),
+    gap: Type.Optional(Type.String({ description: "What the learner still misses; omit when ●" })),
+    sources: Type.Optional(Type.Array(Type.String(), { description: "Links used to fact-check" })),
+  }),
+  async run(params, deps, run) {
+    assertValid(
+      diagramProblem(params.diagram),
+      textProblem("explanation", params.explanation),
+      ...[params.learner_words, params.trap, params.gap].map((text) =>
+        textProblem("text", text ?? ""),
+      ),
+    );
+    const at = params.node - 1;
+    const doc = await deps.store.updateTopic(run.slug, (current) => {
+      const target = current.nodes[at];
+      if (!target) {
+        throw new Error(
+          `node ${params.node} is not on the map; it has ${current.nodes.length} nodes`,
+        );
+      }
+      const body = renderNodeBody({
+        explanation: params.explanation,
+        diagram: params.diagram,
+        learnerWords: params.learner_words,
+        trap: params.trap,
+        gap: params.gap,
+        sources: params.sources ?? [],
+      });
+      return {
+        ...current,
+        nodes: current.nodes.map((node, i) => (i === at ? { ...node, state: params.state } : node)),
+        sections: { ...current.sections, [target.name]: body },
+      };
+    });
+    return `Node ${params.node} (${doc.nodes[at]?.name}) saved as ${params.state}.`;
+  },
+});
+
+export const addSideTopicTool = defineLearnTool({
+  name: "learn_add_side_topic",
+  label: "Park side topic",
+  description:
+    "Park a side topic or big prerequisite that does not serve the goal right now. Parked topics are offered as the next topic when the run ends.",
+  parameters: Type.Object({
+    title: Type.String(),
+    reason: Type.String({
+      description: 'Why it was set aside, e.g. "not asked" or "parked prerequisite"',
+    }),
+  }),
+  async run(params, deps, run) {
+    const title = params.title.trim();
+    assertValid(singleLineProblem("title", title), singleLineProblem("reason", params.reason));
+    const item = `${title} (${params.reason.trim()})`;
+    await deps.store.updateTopic(run.slug, (doc) =>
+      doc.skipped.some((parked) => parked.startsWith(`${title} (`))
+        ? doc
+        : { ...doc, skipped: [...doc.skipped, item] },
+    );
+    return `Parked: ${item}`;
+  },
+});
