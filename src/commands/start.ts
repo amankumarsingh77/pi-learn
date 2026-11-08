@@ -89,6 +89,7 @@ export async function startRun(
     firstRunEver: index.runs === 1,
     promotionOpen,
     heardLearner: false,
+    awaitingAgreement: false,
   };
   attachRun(deps, run);
   if (run.lookupTools.length === 0) {

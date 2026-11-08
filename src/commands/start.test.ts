@@ -117,6 +117,16 @@ describe("/learn new", () => {
     expect(kickoff).not.toContain("learn_set_profile");
     expect(kickoff).not.toContain("last_seen");
   });
+
+  test("SC79: with an observation pending, the kickoff tells the model to call learn_set_profile only when a line changes and to wait for agreement on the map before teaching", async () => {
+    await learn.store.appendObservation({ topic: "http", kind: "habit", note: "skips a step" });
+
+    await learn.fake.command("/learn new dns");
+
+    const kickoff = String(learn.fake.state.sent.at(-1)?.content);
+    expect(kickoff).toContain("do not call learn_set_profile");
+    expect(kickoff).toContain("end your turn");
+  });
 });
 
 describe("/learn resume", () => {

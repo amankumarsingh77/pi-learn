@@ -9,6 +9,8 @@ export interface ActiveRun {
   readonly promotionOpen: boolean;
   /** False until the learner types a message in this run, so a first map waits for calibration. */
   readonly heardLearner: boolean;
+  /** True from the first map save until the learner's next message, so teaching waits for a yes. */
+  readonly awaitingAgreement: boolean;
 }
 
 export interface RunSlot {
@@ -25,10 +27,24 @@ export function closePromotion(slot: RunSlot): void {
   if (run?.promotionOpen) slot.set({ ...run, promotionOpen: false });
 }
 
+/** A learner message answers calibration and, once a map is shown, counts as their reply to it. */
 export function markHeardLearner(slot: RunSlot): void {
   const run = slot.current();
-  if (run && !run.heardLearner) slot.set({ ...run, heardLearner: true });
+  if (run && (!run.heardLearner || run.awaitingAgreement)) {
+    slot.set({ ...run, heardLearner: true, awaitingAgreement: false });
+  }
 }
+
+/** The first map is a proposal: the learner edits and agrees to it before any node is taught. */
+export function markAwaitingAgreement(slot: RunSlot): void {
+  const run = slot.current();
+  if (run && !run.awaitingAgreement) slot.set({ ...run, awaitingAgreement: true });
+}
+
+export const agreementProblem = (run: ActiveRun): string | undefined =>
+  run.awaitingAgreement
+    ? "The learner has not agreed to the map and pitch yet. Show both, end your turn, and teach the first node only after they reply."
+    : undefined;
 
 /** A first map or pitch is pitched at nobody until the learner has answered calibration. */
 export const calibrationProblem = (run: ActiveRun, mapSize: number): string | undefined =>

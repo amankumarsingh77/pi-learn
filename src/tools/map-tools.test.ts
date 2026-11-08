@@ -24,6 +24,12 @@ const setMap = (names: readonly string[]) =>
     nodes: names.map((name) => ({ name, depth: "must know" })),
   });
 
+/** Saves a first map and has the learner agree to it, so teaching may start. */
+const agreedMap = async (names: readonly string[]) => {
+  await setMap(names);
+  await learn.learnerSays("yes, that map works");
+};
+
 const nodeCall = (overrides: Record<string, unknown> = {}) => ({
   node: 1,
   state: "○",
@@ -35,7 +41,7 @@ const nodeCall = (overrides: Record<string, unknown> = {}) => ({
 describe("learn_set_map and learn_set_node", () => {
   test("SC6: a ○ call then a ● call with learner words and a source leave node 1 ● with only the ● section, node 2 ○", async () => {
     await startRun();
-    await setMap(["request format", "response codes"]);
+    await agreedMap(["request format", "response codes"]);
     await learn.fake.tool("learn_set_node", nodeCall({ explanation: "first draft of the model" }));
 
     const result = await learn.fake.tool(
@@ -69,7 +75,7 @@ describe("learn_set_map and learn_set_node", () => {
 
   test("SC56: two learn_set_node calls fired at once, as pi runs a turn's tool calls, both succeed and both sections land in the notes", async () => {
     await startRun();
-    await setMap(["request format", "response codes"]);
+    await agreedMap(["request format", "response codes"]);
 
     const results = await Promise.all([
       learn.fake.tool("learn_set_node", nodeCall({ explanation: "NODE-ONE-TEXT" })),
@@ -92,7 +98,7 @@ describe("learn_set_map and learn_set_node", () => {
 
   test("SC7: re-saving the map with a new node before request format keeps it ● with its section as node 2", async () => {
     await startRun();
-    await setMap(["request format"]);
+    await agreedMap(["request format"]);
     await learn.fake.tool("learn_set_node", nodeCall({ state: "●" }));
 
     await setMap(["DNS lookup", "request format"]);
@@ -108,7 +114,7 @@ describe("learn_set_map and learn_set_node", () => {
 
   test("SC8: a diagram whose line 3 is 73 columns is refused naming line 3 and 72 columns, and 72 columns is accepted", async () => {
     await startRun();
-    await setMap(["request format"]);
+    await agreedMap(["request format"]);
     const before = await learn.readText(NOTES);
     const diagramWithLine3 = (width: number) => `client\n  │\n${"─".repeat(width)}\nserver`;
 
@@ -130,7 +136,7 @@ describe("learn_set_map and learn_set_node", () => {
 
   test("SC67: a source that spans lines, as a forged node heading would, is refused and the notes stay unchanged", async () => {
     await startRun();
-    await setMap(["request format"]);
+    await agreedMap(["request format"]);
     const before = await learn.readText(NOTES);
 
     const result = await learn.fake.tool(
@@ -191,7 +197,7 @@ describe("learn_set_node notes readability", () => {
 
   test("SC68: an explanation paragraph over 600 characters is refused naming the paragraph, and the same text split into short paragraphs is saved with its blank lines", async () => {
     await startRun();
-    await setMap(["request format"]);
+    await agreedMap(["request format"]);
     const before = await learn.readText(NOTES);
     const wall = sentence.repeat(9).trim();
 
@@ -214,7 +220,7 @@ describe("learn_set_node notes readability", () => {
 
   test("SC69: learner words the model already wrapped in quotes are written with one pair of quotes", async () => {
     await startRun();
-    await setMap(["request format"]);
+    await agreedMap(["request format"]);
 
     await learn.fake.tool("learn_set_node", nodeCall({ learner_words: '"it is like a letter"' }));
 
@@ -251,6 +257,32 @@ describe("calibrate before the map", () => {
     await learn.fake.command("/learn resume http round trip");
 
     const result = await setMap(["request format", "response codes"]);
+
+    expect(result.isError).toBe(false);
+  });
+
+  test("SC76: after the first map is saved, learn_set_node is refused until the learner replies, then accepted", async () => {
+    await startRun();
+    await firstMap();
+
+    const tooSoon = await learn.fake.tool("learn_set_node", nodeCall());
+
+    expect(tooSoon).toEqual({ isError: true, text: expect.stringContaining("agree") });
+    expect(await learn.readText(NOTES)).not.toContain("start line");
+    await learn.learnerSays("yes, looks good");
+    expect(await learn.fake.tool("learn_set_node", nodeCall())).toEqual({
+      isError: false,
+      text: "Node 1 (request format) saved as ○.",
+    });
+  });
+
+  test("SC77: changing a map the learner already agreed to does not block learn_set_node in the same turn", async () => {
+    await startRun();
+    await firstMap();
+    await learn.learnerSays("yes");
+    await setMap(["request format", "response codes"]);
+
+    const result = await learn.fake.tool("learn_set_node", nodeCall());
 
     expect(result.isError).toBe(false);
   });

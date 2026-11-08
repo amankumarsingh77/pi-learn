@@ -63,6 +63,7 @@ export async function restoreRun(deps: LearnDeps, ctx: ExtensionContext): Promis
     promotionOpen: false,
     // The restored session already holds the learner's messages.
     heardLearner: true,
+    awaitingAgreement: false,
   });
   ctx.ui.notify(`pi-learn: back in your learn run on ${slug}. /learn stop ends it.`, "info");
 }

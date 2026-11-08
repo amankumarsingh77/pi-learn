@@ -142,6 +142,22 @@ describe("the profile rewrite gate", () => {
     expect(await learn.readText("profile.md")).toBe(saved);
   });
 
+  test("SC78: a profile equal to the current one, an empty one here, is refused, marks no observation reviewed and leaves the pass open for a real write", async () => {
+    await learn.store.appendObservation({ topic: "http", kind: "habit", note: "skips a step" });
+    await learn.fake.command("/learn new dns");
+
+    const unchanged = await learn.fake.tool("learn_set_profile", { profile: "" });
+
+    expect(unchanged.isError).toBe(true);
+    expect(unchanged.text).toContain("unchanged");
+    expect((await learn.store.readIndex()).observations_reviewed).toBe(0);
+    expect(await learn.fake.tool("learn_set_profile", { profile: profileOf(1) })).toEqual({
+      isError: false,
+      text: "Profile saved.",
+    });
+    expect((await learn.store.readIndex()).observations_reviewed).toBe(1);
+  });
+
   test.each([
     ["no last_seen marker", "reads ahead; slow down", "line 2 must end with <!-- last_seen: N -->"],
     [

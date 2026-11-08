@@ -31,7 +31,7 @@ export const setProfileTool = defineLearnTool({
   name: "learn_set_profile",
   label: "Rewrite learner profile",
   description:
-    "Rewrite profile.md once, during the promotion pass in the first turn of a new run, before any other learn_* tool; any other call is refused. Send the whole profile, at most 20 lines of at most 200 characters, each ending with <!-- last_seen: N -->; anything else is refused.",
+    "Rewrite profile.md once, during the promotion pass in the first turn of a new run, before any other learn_* tool; any other call is refused. Skip it when no line changes: an unchanged profile is refused and the observations wait for a later pass. Send the whole profile, at most 20 lines of at most 200 characters, each ending with <!-- last_seen: N -->; anything else is refused.",
   parameters: Type.Object({
     profile: Type.String({
       description: "Every line: a pattern, what to do about it, then <!-- last_seen: N -->",
@@ -43,6 +43,9 @@ export const setProfileTool = defineLearnTool({
         ? undefined
         : "profile.md can only be rewritten during the promotion pass, in the first turn of a new run and before any other learn_* tool",
       profileProblem(params.profile),
+      params.profile.trim() === (await deps.store.readProfile()).trim()
+        ? "the profile is unchanged, so nothing is saved and the observations wait for a later pass; skip learn_set_profile when no pattern qualifies"
+        : undefined,
     );
     const reviewed = (await deps.store.readObservations()).length;
     await deps.store.writeProfile(params.profile);
