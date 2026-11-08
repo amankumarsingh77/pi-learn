@@ -1,6 +1,6 @@
 {
   "name": "pi-learn",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A pi extension that teaches you a topic: it calibrates, maps the topic, explains with ASCII diagrams, asks one question at a time and diagnoses your reasoning, and keeps shareable notes.",
   "license": "MIT",
   "author": "amankumarsingh77",

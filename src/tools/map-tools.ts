@@ -1,7 +1,7 @@
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { DEPTHS, NODE_STATES } from "../model";
-import { calibrationProblem } from "../run";
+import { agreementProblem, calibrationProblem, markAwaitingAgreement } from "../run";
 import { renderMapTable, renderNodeBody } from "../store/topic-file";
 import {
   assertValid,
@@ -17,7 +17,7 @@ export const setMapTool = defineLearnTool({
   name: "learn_set_map",
   label: "Save learn map",
   description:
-    "Save the goal and node map once the learner agrees to it, and again whenever they change it. A node keeps its state while its name is unchanged.",
+    "Save the proposed goal and node map, show both with the pitch, and end your turn: learn_set_node is refused until the learner replies. Save the map again whenever they change it. A node keeps its state while its name is unchanged.",
   parameters: Type.Object({
     goal: Type.String({ description: "One line: what the learner wants to be able to explain" }),
     nodes: Type.Array(Type.Object({ name: Type.String(), depth: StringEnum(DEPTHS) }), {
@@ -32,8 +32,10 @@ export const setMapTool = defineLearnTool({
       ...names.map((name) => singleLineProblem("node name", name)),
       duplicateProblem("node name", names),
     );
+    let firstMap = false;
     const doc = await deps.store.updateTopic(run.slug, (current) => {
       assertValid(calibrationProblem(run, current.nodes.length));
+      firstMap = current.nodes.length === 0;
       return {
         ...current,
         goal: params.goal.trim(),
@@ -47,6 +49,7 @@ export const setMapTool = defineLearnTool({
         ),
       };
     });
+    if (firstMap) markAwaitingAgreement(deps.slot);
     return `Map saved.\n${renderMapTable(doc.nodes)}`;
   },
 });
@@ -55,7 +58,7 @@ export const setNodeTool = defineLearnTool({
   name: "learn_set_node",
   label: "Save learn node",
   description:
-    "Write a node's section and state. Call it at EXPLAIN with state ○, so the explanation is saved even if the learner stops before answering, and again at DIAGNOSE with the verdict. Each call rewrites the whole section, so send the full correct model every time, not only what changed.",
+    "Write a node's section and state. Refused until the learner has replied to the first map. Call it at EXPLAIN with state ○, so the explanation is saved even if the learner stops before answering, and again at DIAGNOSE with the verdict. Each call rewrites the whole section, so send the full correct model every time, not only what changed.",
   parameters: Type.Object({
     node: Type.Integer({ minimum: 1, description: "Node number from the map" }),
     state: StringEnum(NODE_STATES, {
@@ -79,6 +82,7 @@ export const setNodeTool = defineLearnTool({
   }),
   async run(params, deps, run) {
     assertValid(
+      agreementProblem(run),
       diagramProblem(params.diagram),
       explanationProblem(params.explanation),
       ...[params.learner_words, params.trap, params.gap].map((text) =>

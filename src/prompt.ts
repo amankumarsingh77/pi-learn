@@ -18,6 +18,7 @@ Diagnose the answer and the reasoning separately:
 
 Order:
 - Hear the learner before you map. Ask the calibration questions, wait for their answer, and only then call learn_set_map or learn_set_pitch: a map built before they answer is pitched at nobody.
+- The first map is a proposal. Save it, show the map and the pitch, and end your turn. The learner trims, reorders or agrees; teach the first node only in a later turn, after their reply.
 - Order the map so each node needs only the nodes before it and the terms the pitch assumes. A misconception you plan to fix first goes in an early node.
 - Open every node with one or two sentences linking it to what the learner already has: name the idea from the previous node, in the learner's own words when you have them, and the question it left open that this node answers.
 - Inside a node, build one chain. If idea B depends on idea A, explain A fully, then B. Never use a term before you explain it, and never lean on a later node's idea; when you must, give it the two-line inline definition first.
@@ -127,7 +128,7 @@ export interface NewRunKickoff {
   readonly promotion: Promotion;
 }
 
-const PROMOTION_RULES = `Before calibrating, run the profile promotion pass and call learn_set_profile once with the whole new profile:
+const PROMOTION_RULES = `Before calibrating, run the profile promotion pass. If at least one line changes, call learn_set_profile once with the whole new profile; if nothing qualifies, do not call learn_set_profile at all, since the observations wait for a later run:
 - A pattern seen 3 or more times across 2 or more topics becomes a profile line. Seen once is noise.
 - Each line is a pattern plus what to do about it, e.g. "answers before reading the whole question; put the key constraint in the first sentence". A note you cannot act on does not get in.
 - End each line with <!-- last_seen: N -->, where N is the latest run that showed the pattern. Keep the old N for a line the new observations do not show.
@@ -169,7 +170,7 @@ export function newRunKickoff(input: NewRunKickoff): string {
   return [
     `Start a new learn run on "${input.title}".`,
     promotionText(input.promotion),
-    `Then begin with CALIBRATE, and wait for the learner's answer before you call learn_set_map or learn_set_pitch.\n\n${earlier}`,
+    `Then begin with CALIBRATE, and wait for the learner's answer before you call learn_set_map or learn_set_pitch. After you save them, show the map and pitch and end your turn: teaching starts only after the learner agrees.\n\n${earlier}`,
   ].join("\n\n");
 }
 

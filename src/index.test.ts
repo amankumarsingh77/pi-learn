@@ -22,6 +22,7 @@ describe("the pi_learn system prompt section", () => {
         { name: "routing", depth: "enough" },
       ],
     });
+    await learn.learnerSays("yes, that map works");
     await learn.fake.tool("learn_set_node", {
       node: 2,
       state: "◐",
@@ -120,6 +121,7 @@ describe("linking back to earlier nodes", () => {
         { name: "response codes", depth: "must know" },
       ],
     });
+    await learn.learnerSays("yes, that map works");
     await learn.fake.tool("learn_set_node", {
       node: 1,
       state: "●",
