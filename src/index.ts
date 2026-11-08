@@ -10,6 +10,7 @@ import { buildTeachingSection } from "./prompt";
 import { type ActiveRun, closePromotion, createRunSlot, markHeardLearner } from "./run";
 import { type Clock, createLearnStore } from "./store/learn-store";
 import { LEARN_TOOLS, registerLearnTools } from "./tools/table";
+import { registerCardRenderer } from "./ui/card";
 
 export const PROMPT_SECTION = "pi_learn";
 
@@ -28,6 +29,7 @@ export function createPiLearn(options: PiLearnOptions): (pi: ExtensionAPI) => vo
     };
     registerLearnTools(deps);
     registerLearnCommand(deps);
+    registerCardRenderer(pi);
     pi.on("before_agent_start", async (event) => {
       const sections = event.systemPromptOptions.sections;
       const run = deps.slot.current();

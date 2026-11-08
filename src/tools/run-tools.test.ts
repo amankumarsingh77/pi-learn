@@ -85,7 +85,7 @@ describe("learn_finish", () => {
     expect(result.isError).toBe(false);
     expect(await learn.readText(`${SLUG}.md`)).toContain("status: done");
     expect((await learn.store.readIndex()).topics[SLUG]?.status).toBe("done");
-    expect(result.text).toContain(`Learn run on ${SLUG} finished.`);
+    expect(result.text).toContain(`Learn run on ${SLUG} finished`);
     expect(result.text).toContain("- HTTP/2 framing (not asked)");
     expect(learn.fake.state.active).toEqual(CODING_TOOLS);
     expect(await learn.promptSections()).not.toHaveProperty("pi_learn");

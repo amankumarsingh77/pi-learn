@@ -16,6 +16,30 @@ export function slugify(title: string): string {
     .replace(/-+$/, "");
 }
 
+/** A topic id is the title's first few content words, so it is short enough to read and type. */
+export const MAX_ID_WORDS = 4;
+
+/** Words that say nothing about the topic: question frames, articles, pronouns and "teach me". */
+const FILLER_WORDS = new Set([
+  ...["a", "an", "the", "of", "for", "to", "in", "on", "at", "by", "with", "from", "into"],
+  ...["and", "or", "vs", "about", "as", "than", "it", "its", "this", "that", "these", "those"],
+  ...["is", "are", "was", "were", "be", "do", "does", "did", "can", "should", "would"],
+  ...["how", "what", "why", "when", "where", "which", "who", "i", "me", "my", "we", "you", "your"],
+  ...["explain", "learn", "teach", "understand", "know", "want", "please", "help"],
+]);
+
+/**
+ * The id a new topic gets from its title: up to MAX_ID_WORDS content words, in title order.
+ * A title made only of filler words keeps its first words so the id is never empty.
+ */
+export function topicId(title: string): string {
+  const words = slugify(title)
+    .split("-")
+    .filter((word) => word !== "");
+  const content = words.filter((word) => !FILLER_WORDS.has(word));
+  return (content.length > 0 ? content : words).slice(0, MAX_ID_WORDS).join("-");
+}
+
 export function diagramProblem(diagram: string): string | undefined {
   if (diagram.includes("```")) return "send the diagram without ``` fences; pi-learn adds them";
   const wide = diagram

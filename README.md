@@ -40,7 +40,7 @@ A lesson goes like this:
    - wrong answer, wrong reasoning: ✗, and it re-teaches from the missing piece
 4. **Final check.** When every "must know" node is ●, it asks one question that spans them all.
 
-`/learn stop` hands pi back to normal coding at any point. `/learn resume <topic>` picks up where you left off. If you quit pi mid-lesson, reopening that session with `pi --resume` puts you back in the lesson.
+Each topic gets a short id from the content words of its title, so `/learn new how does a CDN work for video streaming` becomes `cdn-work-video-streaming`; `/learn list` shows every id next to its full title. `/learn stop` hands pi back to normal coding at any point. `/learn resume <topic>` picks up where you left off. If you quit pi mid-lesson, reopening that session with `pi --resume` puts you back in the lesson.
 
 While a lesson runs, pi-learn uses whatever search or fetch tools your pi has, such as web search or context7, to fact-check claims before teaching them. With none installed, it warns you once that claims can't be checked.
 

@@ -32,19 +32,17 @@ describe("/learn stop", () => {
     await learn.fake.command("/learn stop");
     const sections = await learn.promptSections({ pi_learn: "stale" });
 
-    expect(learn.fake.state.notices).toHaveLength(1);
-    const [notice] = learn.fake.state.notices;
-    expect(notice?.type).toBe("info");
-    expect(notice?.message).toContain(
+    expect(learn.fake.state.notices).toEqual([]);
+    const card = learn.cards().at(-1);
+    expect(card?.title).toBe("Learn run on http-round-trip stopped");
+    expect(card?.body).toContain(
       "| 1 | DNS lookup | must know | ○ |\n| 2 | request format | must know | ○ |",
     );
-    expect(notice?.message).toContain("- HTTP/2 framing (not asked)");
-    expect(notice?.message).toContain(learn.store.topicPath("http-round-trip"));
+    expect(card?.body).toContain("- HTTP/2 framing (not asked)");
+    expect(card?.body).toContain(learn.store.topicPath("http-round-trip"));
     expect(learn.fake.state.active).toEqual(CODING_TOOLS);
-    expect(learn.fake.state.entries.at(-1)).toEqual({
-      customType: "pi-learn-run",
-      data: { slug: null },
-    });
+    const runEntries = learn.fake.state.entries.filter((e) => e.customType === "pi-learn-run");
+    expect(runEntries.at(-1)).toEqual({ customType: "pi-learn-run", data: { slug: null } });
     expect(sections).not.toHaveProperty("pi_learn");
   });
 
@@ -77,11 +75,11 @@ describe("/learn stop", () => {
 });
 
 describe("/learn list", () => {
-  test("SC25: /learn list shows the newer topic first with status and date, ends the older line with its gist, and points an empty dir at /learn new", async () => {
+  test("SC25: /learn list shows the newer topic first with title, status and date, ends the older row with its gist, and points an empty dir at /learn new", async () => {
     await learn.fake.command("/learn list");
-    expect(learn.fake.state.notices.at(-1)).toEqual({
-      type: "info",
-      message: expect.stringContaining("/learn new"),
+    expect(learn.cards().at(-1)).toEqual({
+      title: "0 topics",
+      body: expect.stringContaining("/learn new"),
     });
 
     await learn.store.updateIndex((index) => ({
@@ -106,15 +104,18 @@ describe("/learn list", () => {
 
     await learn.fake.command("/learn list");
 
-    expect(learn.fake.state.notices).toEqual([
-      {
-        type: "info",
-        message: [
-          "tls  in-progress  updated 2026-11-05",
-          "dns  done  updated 2026-10-01  https://gist.github.com/learner/abc123",
+    expect(learn.fake.state.notices).toEqual([]);
+    expect(learn.cards().at(-1)).toEqual({
+      title: "2 topics",
+      body: expect.stringContaining(
+        [
+          "| Topic | Title | Status | Updated | Gist |",
+          "| --- | --- | --- | --- | --- |",
+          "| `tls` | TLS | in-progress | 2026-11-05 | – |",
+          "| `dns` | DNS | done | 2026-10-01 | https://gist.github.com/learner/abc123 |",
         ].join("\n"),
-      },
-    ]);
+      ),
+    });
   });
 
   test("SC60: in Asia/Kolkata, a topic updated at 02:08 local on 7 Nov (20:38 UTC on 6 Nov) lists as updated 2026-11-07", async () => {
@@ -135,7 +136,7 @@ describe("/learn list", () => {
 
       await learn.fake.command("/learn list");
 
-      expect(learn.fake.state.notices.at(-1)?.message).toBe("dns  done  updated 2026-11-07");
+      expect(learn.cards().at(-1)?.body).toContain("| `dns` | DNS | done | 2026-11-07 | – |");
     } finally {
       if (zone === undefined) delete process.env.TZ;
       else process.env.TZ = zone;
@@ -147,8 +148,8 @@ describe("/learn profile", () => {
   test("SC37: /learn profile on an empty dir says there is no profile yet; with 2 lines it shows both and the profile.md path", async () => {
     await learn.fake.command("/learn profile");
 
-    expect(learn.fake.state.notices).toEqual([
-      { type: "info", message: expect.stringContaining("No profile yet") },
+    expect(learn.cards()).toEqual([
+      { title: "Your learner profile", body: expect.stringContaining("No profile yet") },
     ]);
 
     const profile = [
@@ -160,10 +161,9 @@ describe("/learn profile", () => {
 
     await learn.fake.command("/learn profile");
 
-    expect(learn.fake.state.notices).toHaveLength(1);
-    const [notice] = learn.fake.state.notices;
-    expect(notice?.type).toBe("info");
-    expect(notice?.message).toContain(profile);
-    expect(notice?.message).toContain(learn.store.profilePath);
+    expect(learn.fake.state.notices).toEqual([]);
+    const card = learn.cards().at(-1);
+    expect(card?.body).toContain(profile);
+    expect(card?.body).toContain(learn.store.profilePath);
   });
 });

@@ -26,11 +26,12 @@ test("SC38: the first /learn share dns runs gh gist create without --public, sav
   const index = await learn.store.readIndex();
   expect(index.topics.dns?.gist).toBe(GIST_URL);
   expect(index.share_notice_shown).toBe(true);
-  expect(learn.fake.state.notices).toEqual([
+  expect(learn.fake.state.notices).toEqual([]);
+  expect(learn.cards()).toEqual([
     {
-      type: "info",
-      message: expect.stringMatching(
-        new RegExp(`${GIST_URL}[\\s\\S]*unlisted, not access-controlled`),
+      title: "Shared dns",
+      body: expect.stringMatching(
+        new RegExp(`Created ${GIST_URL}[\\s\\S]*unlisted, not access-controlled`),
       ),
     },
   ]);
@@ -55,7 +56,8 @@ test("SC39: a later /learn share dns runs gh gist edit on the stored URL, keeps 
     ["gh", "gist", "edit", GIST_URL, "--filename", "dns.md", learn.store.topicPath("dns")],
   ]);
   expect((await learn.store.readIndex()).topics.dns?.gist).toBe(GIST_URL);
-  expect(learn.fake.state.notices).toEqual([{ type: "info", message: `Shared dns: ${GIST_URL}` }]);
+  expect(learn.fake.state.notices).toEqual([]);
+  expect(learn.cards()).toEqual([{ title: "Shared dns", body: `Updated ${GIST_URL}` }]);
 });
 
 test("SC40: /learn share with no topic during a run on dns uploads dns.md", async () => {

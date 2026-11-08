@@ -1,6 +1,7 @@
 import type { LearnDeps } from "../deps";
 import type { LearnIndex } from "../model";
 import type { RunSlot } from "../run";
+import { showCard } from "../ui/card";
 import { slugify } from "../validate";
 import type { Subcommand } from "./table";
 
@@ -33,8 +34,11 @@ export const shareCommand: Subcommand = {
         : current.topics;
       return { ...current, share_notice_shown: true, topics };
     });
-    const notice = index.share_notice_shown ? "" : `\n${UNLISTED_NOTICE}`;
-    ctx.ui.notify(`Shared ${slug}: ${url}${notice}`, "info");
+    const notice = index.share_notice_shown ? [] : [`> ${UNLISTED_NOTICE}`];
+    showCard(deps.pi, ctx, {
+      title: `Shared ${slug}`,
+      body: [existing ? `Updated ${url}` : `Created ${url}`, ...notice].join("\n\n"),
+    });
   },
 };
 

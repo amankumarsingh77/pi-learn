@@ -40,6 +40,7 @@ export function createFakePi(seed: { entries?: SavedEntry[]; otherTools?: string
   const commands = new Map<string, CommandOptions>();
   const tools = new Map<string, ToolDefinition>();
   const handlers = new Map<string, Handler[]>();
+  const renderers = new Map<string, unknown>();
   const state: FakeState = {
     notices: [],
     sent: [],
@@ -62,6 +63,8 @@ export function createFakePi(seed: { entries?: SavedEntry[]; otherTools?: string
   const api = {
     registerCommand: (name: string, options: CommandOptions) => commands.set(name, options),
     registerTool: (tool: ToolDefinition) => tools.set(tool.name, tool),
+    registerEntryRenderer: (customType: string, renderer: unknown) =>
+      renderers.set(customType, renderer),
     on: (event: string, handler: Handler) => {
       handlers.set(event, [...(handlers.get(event) ?? []), handler]);
       return () => undefined;
@@ -117,6 +120,7 @@ export function createFakePi(seed: { entries?: SavedEntry[]; otherTools?: string
       return { text, isError: result.isError === true };
     },
     registeredTools: (): ToolDefinition[] => [...tools.values()],
+    entryRenderer: (customType: string): unknown => renderers.get(customType),
     async emit(event: string, payload: unknown): Promise<unknown[]> {
       return Promise.all((handlers.get(event) ?? []).map((handler) => handler(payload, ctx)));
     },

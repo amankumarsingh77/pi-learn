@@ -13,7 +13,8 @@ import {
 import type { ActiveRun } from "../run";
 import type { LearnStore } from "../store/learn-store";
 import { renderMapTable } from "../store/topic-file";
-import { slugify } from "../validate";
+import { showCard } from "../ui/card";
+import { slugify, topicId } from "../validate";
 import type { Subcommand } from "./table";
 
 const CALIBRATION_MAPS = 10;
@@ -23,7 +24,7 @@ export const newCommand: Subcommand = {
   summary: "calibrate, build a map, get a yes, teach",
   async run(args, ctx, deps) {
     const title = args.trim();
-    const slug = slugify(title);
+    const slug = topicId(title);
     if (slug === "") throw new Error("usage: /learn new <topic>");
     refuseIfActive(deps);
     if ((await deps.store.readIndex()).topics[slug]) {
@@ -32,6 +33,10 @@ export const newCommand: Subcommand = {
       );
     }
     await deps.store.createTopic(slug, title);
+    showCard(deps.pi, ctx, {
+      title: `New topic: ${slug}`,
+      body: `${title}\n\nNotes: \`${deps.store.topicPath(slug)}\`. Later: \`/learn resume ${slug}\`.`,
+    });
     const earlier = await earlierTopics(deps.store, slug);
     const index = await deps.store.readIndex();
     const promotion = {
@@ -51,12 +56,11 @@ export const resumeCommand: Subcommand = {
   usage: "resume <topic>",
   summary: "continue a topic at its first ◐ or ○ node",
   async run(args, ctx, deps) {
-    const slug = slugify(args);
-    if (slug === "") throw new Error("usage: /learn resume <topic>");
+    const index = await deps.store.readIndex();
+    const slug = [slugify(args), topicId(args)].find((id) => id !== "" && index.topics[id]);
+    if (slugify(args) === "") throw new Error("usage: /learn resume <topic>");
     refuseIfActive(deps);
-    if (!(await deps.store.readIndex()).topics[slug]) {
-      throw new Error(`no topic named ${slug}; run /learn list`);
-    }
+    if (slug === undefined) throw new Error(`no topic named ${slugify(args)}; run /learn list`);
     const doc = await deps.store.readTopic(slug);
     await startRun(deps, ctx, { slug, kickoff: resumeKickoff(doc), promotionOpen: false });
   },

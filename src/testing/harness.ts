@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { createPiLearn } from "../index";
 import { createLearnStore, type LearnStore } from "../store/learn-store";
 import { LEARN_TOOLS } from "../tools/table";
+import { CARD_ENTRY, type CardData } from "../ui/card";
 import { CODING_TOOLS, createFakePi, type FakePi, type SavedEntry } from "./fake-pi";
 
 export const FIXED_NOW = "2026-11-07T10:00:00.000Z";
@@ -19,6 +20,8 @@ export interface LoadedPiLearn {
   readonly root: string;
   readonly store: LearnStore;
   readText(file: string): Promise<string>;
+  /** The cards pi-learn has shown in the chat, oldest first. */
+  cards(): CardData[];
   /** Fires pi's input event for a message the learner typed. */
   learnerSays(text: string): Promise<void>;
   /** Fires before_agent_start the way pi does and returns the sections object it was given. */
@@ -37,6 +40,10 @@ export async function loadPiLearn(
     root,
     store: createLearnStore(root, () => FIXED_NOW),
     readText: (file) => readFile(join(root, file), "utf8"),
+    cards: () =>
+      fake.state.entries.flatMap((entry) =>
+        entry.customType === CARD_ENTRY ? [entry.data as CardData] : [],
+      ),
     async learnerSays(text) {
       await fake.emit("input", { type: "input", text, source: "interactive" });
     },
