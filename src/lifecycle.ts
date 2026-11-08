@@ -5,6 +5,7 @@ import type { TopicDoc } from "./model";
 import { RUN_ENDED_MESSAGE, runEndedNote } from "./prompt";
 import type { ActiveRun } from "./run";
 import { renderMapTable } from "./store/topic-file";
+import { type CardData, showCard } from "./ui/card";
 
 export const RUN_ENTRY = "pi-learn-run";
 
@@ -42,8 +43,8 @@ export async function endRun(deps: LearnDeps, ctx: ExtensionContext): Promise<st
     { triggerTurn: false },
   );
   const summary = runSummary(run.slug, doc, deps.store.topicPath(run.slug));
-  ctx.ui.notify(summary, "info");
-  return summary;
+  showCard(deps.pi, ctx, summary);
+  return `${summary.title}\n\n${summary.body}`;
 }
 
 export async function restoreRun(deps: LearnDeps, ctx: ExtensionContext): Promise<void> {
@@ -72,8 +73,8 @@ const savedSlug = (data: unknown): string | null =>
     ? data.slug
     : null;
 
-function runSummary(slug: string, doc: TopicDoc | undefined, path: string): string {
-  if (!doc) return `Learn run on ${slug} stopped.\n\nNotes: ${path}`;
+function runSummary(slug: string, doc: TopicDoc | undefined, path: string): CardData {
+  if (!doc) return { title: `Learn run on ${slug} stopped`, body: `Notes: \`${path}\`` };
   const parked =
     doc.skipped.length === 0
       ? []
@@ -84,10 +85,8 @@ function runSummary(slug: string, doc: TopicDoc | undefined, path: string): stri
           ].join("\n"),
         ];
   const verb = doc.status === "done" ? "finished" : "stopped";
-  return [
-    `Learn run on ${slug} ${verb}.`,
-    renderMapTable(doc.nodes),
-    ...parked,
-    `Notes: ${path}`,
-  ].join("\n\n");
+  return {
+    title: `Learn run on ${slug} ${verb}`,
+    body: [renderMapTable(doc.nodes), ...parked, `Notes: \`${path}\``].join("\n\n"),
+  };
 }

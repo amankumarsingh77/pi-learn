@@ -30,15 +30,18 @@ describe("/learn new", () => {
     expect(String(kickoff?.content)).toContain("no earlier topics");
   });
 
-  test("SC59: /learn new with a 299-character title of 60 words starts a run under a slug cut to 80 characters with no trailing dash, keeps the full title, and /learn resume with the same title finds it", async () => {
-    const title = Array.from({ length: 60 }, () => "word").join(" ");
-    const slug = Array.from({ length: 16 }, () => "word").join("-");
+  test("SC59: /learn new with a long question title starts a run under a four-word id without the filler words, keeps the full title, shows the id in a card, and /learn resume with the same title finds it", async () => {
+    const title =
+      "How does a CDN work for video streaming, and what are the different types of it?";
+    const slug = "cdn-work-video-streaming";
 
     await learn.fake.command(`/learn new ${title}`);
 
-    expect(title).toHaveLength(299);
     expect((await learn.store.readIndex()).topics[slug]?.title).toBe(title);
     expect(await learn.readText(`${slug}.md`)).toContain(`topic: ${slug}`);
+    expect(learn.cards()).toEqual([
+      { title: `New topic: ${slug}`, body: expect.stringContaining(`/learn resume ${slug}`) },
+    ]);
 
     await learn.fake.command("/learn stop");
     await learn.fake.command(`/learn resume ${title}`);
